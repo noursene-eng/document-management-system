@@ -4,3 +4,28 @@
 .env*.local
 **/.env
 **/.env.local
+
+# Next.js build files
+.next/
+**/.next/
+out/
+dist/
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Build outputs
+*.tsbuildinfo
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+minio_data/
