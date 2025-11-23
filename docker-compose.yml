@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # MinIO - Stockage d'objets
+  minio:
+    image: minio/minio:latest
+    container_name: document-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - document-network
+
+  # Backend NestJS
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: document-backend
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET_NAME: documents
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      CORS_ORIGIN: http://localhost:3000
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./Backend/.env:/app/.env:ro
+    networks:
+      - document-network
+    restart: unless-stopped
+
+  # Frontend Next.js
+  frontend:
+    build:
+      context: ./Frontend/frontend
+      dockerfile: Dockerfile
+    container_name: document-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    depends_on:
+      - backend
+    networks:
+      - document-network
+    restart: unless-stopped
+
+volumes:
+  minio_data:
+    driver: local
+
+networks:
+  document-network:
+    driver: bridge
